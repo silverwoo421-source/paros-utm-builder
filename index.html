@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>파로스 UTM 빌더</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 상단 모드 전환 → 템플릿(캠페인 세트 표) 또는 직접 입력(폼+URL 해부도) → 하단 팀 공유 링크 기록 */
+:root{
+  --bg:#f5f7fb; --surface:#ffffff; --line:#dfe4ee; --fg:#141a26; --muted:#5d6779;
+  --accent:#2563eb; --accent-soft:#e6eefe; --ok:#15803d; --warn:#b45309; --warn-soft:#fff4e0; --danger:#b91c1c;
+  --p-source:#2563eb; --p-medium:#7c3aed; --p-campaign:#0f766e; --p-content:#c2410c; --p-term:#be185d;
+  --font:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e121a; --surface:#161b26; --line:#2a3242; --fg:#e7ebf3; --muted:#9aa4b8;
+  --accent:#6b9bff; --accent-soft:#1c2a47; --ok:#4ade80; --warn:#fbbf24; --warn-soft:#3a2c10; --danger:#f87171;
+  --p-source:#7aa5ff; --p-medium:#b39bff; --p-campaign:#4fd1c0; --p-content:#fb9a5c; --p-term:#f472b6;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e121a; --surface:#161b26; --line:#2a3242; --fg:#e7ebf3; --muted:#9aa4b8;
+  --accent:#6b9bff; --accent-soft:#1c2a47; --ok:#4ade80; --warn:#fbbf24; --warn-soft:#3a2c10; --danger:#f87171;
+  --p-source:#7aa5ff; --p-medium:#b39bff; --p-campaign:#4fd1c0; --p-content:#fb9a5c; --p-term:#f472b6;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.55}
+.wrap{max-width:1240px;margin:0 auto;padding-block:28px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:20px}
+header{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap}
+header h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em;text-wrap:balance}
+header p{margin:4px 0 0;color:var(--muted)}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-weight:600;font-size:13px;border:0;background:transparent;color:var(--muted);padding:8px 16px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:16px;min-width:0}
+.panel h2{font-size:15px;margin:0;font-weight:600}
+.field{display:grid;gap:6px;min-width:0}
+.field label,.flabel{font-size:12.5px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tag{font-family:var(--mono);font-size:11px;font-weight:500;padding:1px 6px;border-radius:4px;color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent)}
+.req{color:var(--danger);font-weight:600}
+.hint{font-size:12px;color:var(--muted);font-weight:400}
+input,select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 11px;width:100%;min-width:0}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:480px){.row2{grid-template-columns:1fr}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 11px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.tpl-chips .chip{border-radius:7px;padding:8px 12px;display:grid;gap:1px;text-align:left}
+.tpl-chips .chip small{font-size:11px;opacity:.75}
+button.btn{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:7px;padding:9px 14px;cursor:pointer;white-space:nowrap}
+button.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.btn:disabled{opacity:.5;cursor:not-allowed}
+button.btn.small{padding:5px 10px;font-size:12.5px;font-weight:500}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.url-box{font-family:var(--mono);font-size:13px;line-height:1.7;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px;word-break:break-all;min-height:90px}
+.url-box .base{color:var(--muted)}
+.url-box .k{opacity:.75}
+.anat{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.anat li{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;align-items:baseline;font-size:13px}
+.anat .v{font-family:var(--mono);word-break:break-all}
+.anat .empty{color:var(--muted);font-family:var(--font)}
+.notes{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.notes li{font-size:12.5px;padding:7px 10px;border-radius:6px;background:var(--warn-soft);color:var(--warn)}
+.notes li.ok{background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--ok)}
+.notes li.info{background:var(--accent-soft);color:var(--fg)}
+.status{font-size:12.5px;color:var(--muted);min-height:1.2em}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.04em;background:var(--bg);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.tpl-table{min-width:980px}
+.tpl-table td.creative{font-weight:600;white-space:nowrap}
+.tpl-table td.creative .hint{display:block;font-weight:400}
+.tpl-table input{padding:6px 9px;font-size:12.5px;font-family:var(--mono)}
+.gen{font-family:var(--mono);font-size:12px;word-break:break-all;max-width:420px}
+.gen.err{font-family:var(--font);color:var(--muted)}
+.log-table{min-width:880px}
+td.url{font-family:var(--mono);font-size:12px;word-break:break-all;max-width:360px}
+td.num{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.pill{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:1px 7px;border-radius:4px;margin:1px 2px 1px 0;color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent)}
+.pill.none{--c:var(--muted);opacity:.7}
+.log-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.log-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.log-tools input{width:220px}
+.empty-state{padding:32px 16px;text-align:center;color:var(--muted)}
+.empty-state strong{display:block;color:var(--fg);margin-bottom:4px}
+.banner{font-size:12.5px;padding:8px 12px;border-radius:7px;background:var(--accent-soft);color:var(--fg)}
+.confirm{display:inline-flex;gap:6px;align-items:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Paros Marketing · GA4 권장 UTM</div>
+      <h1>UTM 링크 빌더</h1>
+      <p>캠페인 세트를 고르면 소재별 UTM 링크가 한 번에 만들어집니다.</p>
+    </div>
+    <div class="seg" role="group" aria-label="모드">
+      <button type="button" id="m-tpl" aria-pressed="true">캠페인 템플릿</button>
+      <button type="button" id="m-custom" aria-pressed="false">직접 입력</button>
+    </div>
+  </header>
+
+  <!-- 템플릿 모드 -->
+  <section class="panel" id="tpl-view" aria-labelledby="t-h">
+    <h2 id="t-h">캠페인 세트</h2>
+    <div class="chips tpl-chips" id="tpl-chips"></div>
+
+    <div class="field">
+      <label for="t-base">기본 랜딩 URL <span class="hint">행별 URL을 비워두면 이 주소가 쓰입니다</span></label>
+      <div class="actions" style="flex-wrap:nowrap">
+        <input id="t-base" type="url" inputmode="url" placeholder="https://upharos.co.kr/" autocomplete="off">
+      </div>
+      <div class="chips" id="t-presets"></div>
+    </div>
+
+    <ul class="notes" id="t-notes"></ul>
+
+    <div class="table-wrap">
+      <table class="tpl-table">
+        <thead><tr><th>소재유형</th><th style="width:240px">랜딩 URL (행별)</th><th>UTM</th><th>생성된 링크</th><th></th></tr></thead>
+        <tbody id="t-body"></tbody>
+      </table>
+    </div>
+
+    <div class="field" style="max-width:520px">
+      <label for="t-memo">메모 <span class="hint">기록에 저장할 때 함께 남습니다</span></label>
+      <input id="t-memo" placeholder="예: 10월 파워링크 서브링크 교체" autocomplete="off">
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="t-save" type="button">세트 전체 기록에 저장</button>
+      <button class="btn" id="t-tsv" type="button">시트용으로 전체 복사</button>
+    </div>
+    <div class="status" id="t-status" role="status" aria-live="polite"></div>
+  </section>
+
+  <!-- 직접 입력 모드 -->
+  <div class="grid" id="custom-view" hidden>
+    <section class="panel" aria-labelledby="b-h">
+      <h2 id="b-h">링크 만들기</h2>
+      <div class="field">
+        <label for="f-url">랜딩 URL <span class="req">*</span></label>
+        <input id="f-url" type="url" inputmode="url" placeholder="https://upharos.co.kr/" autocomplete="off">
+        <div class="chips" id="url-presets"></div>
+      </div>
+      <div class="field">
+        <span class="flabel">매체 <span class="tag" style="--c:var(--p-source)">utm_source</span> <span class="req">*</span></span>
+        <div class="chips" id="src-chips"></div>
+        <input id="f-source" aria-label="utm_source 직접 입력" placeholder="직접 입력 (예: kakao)" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="f-medium">유형 <span class="tag" style="--c:var(--p-medium)">utm_medium</span> <span class="req">*</span></label>
+        <select id="f-medium"></select>
+        <div class="hint">매체를 고르면 기본 유형이 자동 선택됩니다.</div>
+      </div>
+      <div class="field">
+        <label for="f-campaign">캠페인 <span class="tag" style="--c:var(--p-campaign)">utm_campaign</span> <span class="req">*</span></label>
+        <input id="f-campaign" placeholder="예: naver_sa" autocomplete="off" list="camp-list">
+        <datalist id="camp-list"></datalist>
+        <div class="hint">공백은 _로, 대문자는 소문자로 자동 변환됩니다.</div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="f-content">소재 <span class="tag" style="--c:var(--p-content)">utm_content</span></label>
+          <input id="f-content" placeholder="예: p_upharos" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="f-term">키워드 <span class="tag" style="--c:var(--p-term)">utm_term</span></label>
+          <input id="f-term" placeholder="예: {keyword}" autocomplete="off">
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-memo">메모</label>
+        <input id="f-memo" placeholder="예: 부가세 블로그 랜딩, A안" autocomplete="off">
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="b-save" type="button">복사하고 기록에 저장</button>
+        <button class="btn" id="b-copy" type="button">복사만</button>
+        <button class="btn" id="b-reset" type="button">초기화</button>
+      </div>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </section>
+    <section class="panel" aria-labelledby="p-h">
+      <h2 id="p-h">생성된 링크</h2>
+      <div class="url-box" id="url-out"></div>
+      <ul class="anat" id="anat"></ul>
+      <ul class="notes" id="notes"></ul>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="l-h">
+    <div class="log-head">
+      <h2 id="l-h">링크 기록 <span class="hint" id="log-count"></span></h2>
+      <div class="log-tools">
+        <input id="f-search" type="search" aria-label="기록 검색" placeholder="캠페인·소재·메모 검색" autocomplete="off">
+        <button class="btn small" id="b-tsv" type="button">시트용으로 복사</button>
+      </div>
+    </div>
+    <div class="banner" id="store-banner" hidden></div>
+    <div class="table-wrap">
+      <table class="log-table">
+        <thead><tr><th>날짜</th><th>캠페인 세트 · 소재유형</th><th>UTM</th><th>URL</th><th>메모 · 작성자</th><th></th></tr></thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const KEYS=["utm_source","utm_medium","utm_campaign","utm_content","utm_term"];
+const COLORS={utm_source:"--p-source",utm_medium:"--p-medium",utm_campaign:"--p-campaign",utm_content:"--p-content",utm_term:"--p-term"};
+const KW="{keyword}";
+
+/* GA4 고려한 권장 UTM 변경안 (260211 UTM 정리 시트 기준) */
+const R=(creative,s,m,c,ct,t)=>({creative,utm_source:s,utm_medium:m,utm_campaign:c,utm_content:ct||"",utm_term:t||""});
+const PC_NOTE="블로그 포스팅에서 '글 수정하기'를 눌러 하단 배너의 연결 URL을 직접 수정하세요. 배너 5개 각각에 해당 링크를 넣습니다.";
+const AD="{{ad.name}}";
+const META_NOTE="메타 광고 관리자 → 광고 수준 → 추적 → 'URL 매개변수' 칸에 링크의 ? 뒤 부분만 붙여넣어도 됩니다. {{ad.name}}은 메타가 광고 이름으로 바꿔 넣으니 광고 이름을 소재 구분이 되게 지어주세요. utm_source는 GA4가 소셜로 인식하는 facebook을 씁니다(meta는 Paid Social로 분류되지 않을 수 있음).";
+const TEMPLATES=[
+  {id:"pl-stella",type:"파워링크",brand:"스텔라",rows:[
+    R("기본 소재","naver","cpc","naver_sa","stella",KW),
+    R("확장소재 · 서브링크1","naver","cpc","powerlink_sub","function",KW),
+    R("확장소재 · 서브링크2","naver","cpc","powerlink_sub","consulting",KW),
+    R("확장소재 · 서브링크3","naver","cpc","powerlink_sub","inquiry",KW)]},
+  {id:"pl-paros",type:"파워링크",brand:"파로스",rows:[
+    R("기본 소재","naver","cpc","naver_sa","p_upharos",KW),
+    R("확장소재 · 서브링크2","naver","cpc","powerlink_sub","price",KW),
+    R("확장소재 · 서브링크3","naver","cpc","powerlink_sub","free",KW),
+    R("확장소재 · 서브링크4","naver","cpc","powerlink_sub","inquiry",KW)]},
+  {id:"pc-paros",type:"파워콘텐츠",brand:"파로스",note:PC_NOTE,rows:[
+    R("포스팅 하단 배너 · 2-1","naver","cpc","naver_powercontents","2-1_erp_main",KW),
+    R("포스팅 하단 배너 · 2-2","naver","cpc","naver_powercontents","2-2_erp_etc",""),
+    R("포스팅 하단 배너 · 3","naver","cpc","naver_powercontents","3_tax",""),
+    R("포스팅 하단 배너 · 4","naver","cpc","naver_powercontents","4_hrm",""),
+    R("포스팅 하단 배너 · 5","naver","cpc","naver_powercontents","5_inventory","")]},
+  {id:"ga-paros",type:"구글애즈",brand:"파로스",rows:[
+    R("기본 소재","google","cpc","google_sa","p_upharos",KW),
+    R("확장소재 · 서브링크1","google","cpc","price","",KW),
+    R("확장소재 · 서브링크2","google","cpc","free","",KW),
+    R("확장소재 · 서브링크3","google","cpc","clients","",KW),
+    R("확장소재 · 서브링크4","google","cpc","inquiry","",KW)]},
+  {id:"meta-paros",type:"메타",brand:"파로스",note:META_NOTE,rows:[
+    R("트래픽 테스트 캠페인","facebook","paid_social","meta_traffic_test",AD,""),
+    R("전환 캠페인","facebook","paid_social","meta_conversion",AD,"")]},
+  {id:"gfa-paros",type:"네이버 성과형 배너(GFA)",brand:"파로스",rows:[
+    R("이미지 배너 · C","naver","display","gfa_pc_retarget","upharos_re_c",""),
+    R("이미지 배너 · F","naver","display","gfa_pc_retarget","upharos_re_f","")]}
+];
+const URL_PRESETS=[{label:"파로스 홈",url:"https://upharos.co.kr/"},{label:"파로스 블로그",url:"https://blog.upharos.co.kr/"}];
+
+/* URL 조립: {keyword} 같은 매체 치환 매크로는 인코딩하지 않고 그대로 둡니다 */
+function buildUrl(base,p){
+  base=(base||"").trim();
+  if(!base) return {err:"랜딩 URL을 입력하세요."};
+  let u; try{u=new URL(/^https?:\/\//i.test(base)?base:"https://"+base);}catch(e){return {err:"URL 형식이 올바르지 않습니다."};}
+  KEYS.forEach(k=>u.searchParams.delete(k));
+  const hash=u.hash; u.hash="";
+  const parts=[]; KEYS.forEach(k=>{if(p[k])parts.push(k+"="+encodeURIComponent(p[k]).replace(/%7B%7B([\w.]+)%7D%7D/g,"{{$1}}").replace(/%7B(\w+)%7D/g,"{$1}"));});
+  let s=u.toString(); if(parts.length) s+=(u.search?"&":"?")+parts.join("&");
+  return {url:s+hash};
+}
+
+let links=[],db=null,userCap=null,myId=null,canWrite=true,profiles={};
+const LOCAL_KEY="paros-utm-log";
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+async function copyText(t){
+  try{await navigator.clipboard.writeText(t);return true;}catch(e){
+    const ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();
+    let ok=false;try{ok=document.execCommand("copy");}catch(_){}ta.remove();return ok;}
+}
+const pills=p=>KEYS.map(k=>p[k]?`<span class="pill" style="--c:var(${COLORS[k]})" title="${k}">${esc(p[k])}</span>`:"").join("");
+
+/* ---------- 모드 ---------- */
+function setMode(m){
+  $("m-tpl").setAttribute("aria-pressed",String(m==="tpl"));$("m-custom").setAttribute("aria-pressed",String(m==="custom"));
+  $("tpl-view").hidden=m!=="tpl";$("custom-view").hidden=m!=="custom";lsSet("utm-mode",m);
+}
+$("m-tpl").onclick=()=>setMode("tpl");$("m-custom").onclick=()=>setMode("custom");
+
+/* ---------- 템플릿 모드 ---------- */
+let tplId=lsGet("utm-tpl","pl-paros"); if(!TEMPLATES.find(t=>t.id===tplId)) tplId="pl-paros";
+let rowUrls=lsGet("utm-rowurls",{}); // {tplId:{idx:url}}
+$("tpl-chips").innerHTML=TEMPLATES.map(t=>`<button type="button" class="chip" data-id="${t.id}" aria-pressed="false">${esc(t.type)}<small>${esc(t.brand)} · ${t.rows.length}개 소재</small></button>`).join("");
+$("tpl-chips").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;tplId=b.dataset.id;lsSet("utm-tpl",tplId);drawTpl();});
+$("t-presets").innerHTML=URL_PRESETS.map((p,i)=>`<button type="button" class="chip" data-i="${i}">${esc(p.label)}</button>`).join("");
+$("t-presets").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;$("t-base").value=URL_PRESETS[b.dataset.i].url;saveBase();refreshTpl();});
+const baseKey=()=>"utm-base-"+tplId;
+function saveBase(){lsSet(baseKey(),$("t-base").value);}
+$("t-base").addEventListener("input",()=>{saveBase();refreshTpl();});
+
+function tplRows(){
+  const t=TEMPLATES.find(x=>x.id===tplId); const base=$("t-base").value; const ru=rowUrls[tplId]||{};
+  return t.rows.map((r,i)=>{const own=(ru[i]||"").trim();const b=buildUrl(own||base,r);return {...r,i,own,landing:own||base,...b};});
+}
+function drawTpl(){
+  const t=TEMPLATES.find(x=>x.id===tplId);
+  [...$("tpl-chips").children].forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.id===tplId)));
+  $("t-base").value=lsGet(baseKey(),"");
+  const ru=rowUrls[tplId]||{};
+  $("t-body").innerHTML=t.rows.map((r,i)=>`<tr data-i="${i}">
+    <td class="creative">${esc(r.creative)}<span class="hint">${esc(t.brand)}</span></td>
+    <td><input data-i="${i}" class="row-url" aria-label="${esc(r.creative)} 랜딩 URL" placeholder="기본 URL 사용" value="${esc(ru[i]||"")}" autocomplete="off"></td>
+    <td>${pills(r)}</td>
+    <td class="gen" id="gen-${i}"></td>
+    <td><button class="btn small" data-act="copy" data-i="${i}" type="button">복사</button></td></tr>`).join("");
+  refreshTpl();
+}
+function refreshTpl(){
+  const t=TEMPLATES.find(x=>x.id===tplId); const rows=tplRows();
+  rows.forEach(r=>{const el=$("gen-"+r.i);if(!el)return;el.className="gen"+(r.url?"":" err");el.textContent=r.url||r.err;});
+  const n=[];
+  if(t.note) n.push(["info",t.note]);
+  if(rows.some(r=>r.utm_term===KW)) n.push(["info",`utm_term의 ${KW}는 매체가 실제 검색 키워드로 바꿔 넣도록 인코딩하지 않고 그대로 둡니다.`]);  const missing=rows.filter(r=>!r.url).length;
+  if(missing) n.push(["warn",`${missing}개 행에 랜딩 URL이 없습니다. 기본 URL을 넣거나 행별 URL을 입력하세요.`]);
+  const dup=rows.filter(r=>r.url&&links.some(l=>l.url===r.url)).length;
+  if(dup) n.push(["warn",`${dup}개 링크는 이미 기록에 있습니다.`]);
+  $("t-notes").innerHTML=n.map(([c,x])=>`<li class="${c==="warn"?"":c}">${esc(x)}</li>`).join("");
+  const ready=rows.filter(r=>r.url);
+  $("t-save").disabled=!ready.length||!canWrite; $("t-tsv").disabled=!ready.length;
+}
+$("t-body").addEventListener("input",e=>{
+  if(!e.target.classList.contains("row-url"))return;
+  (rowUrls[tplId]=rowUrls[tplId]||{})[e.target.dataset.i]=e.target.value; lsSet("utm-rowurls",rowUrls); refreshTpl();
+});
+$("t-body").addEventListener("click",async e=>{
+  const b=e.target.closest("button[data-act=copy]");if(!b)return;
+  const r=tplRows()[b.dataset.i]; if(!r.url){$("t-status").textContent="이 행은 랜딩 URL이 없어 복사할 링크가 없습니다.";return;}
+  $("t-status").textContent=(await copyText(r.url))?`${r.creative} 링크를 복사했습니다.`:"복사가 막혀 있어요. 표의 링크를 직접 선택해 복사하세요.";
+});
+$("t-tsv").addEventListener("click",async()=>{
+  const t=TEMPLATES.find(x=>x.id===tplId);
+  const head=["캠페인유형","캠페인","소재유형",...KEYS,"랜딩 URL","UTM 링크"];
+  const rows=tplRows().filter(r=>r.url).map(r=>[t.type,t.brand,r.creative,...KEYS.map(k=>r[k]),r.landing,r.url].join("\t"));
+  $("t-status").textContent=(await copyText([head.join("\t"),...rows].join("\n")))?`${rows.length}개 행을 복사했습니다. 구글 시트에 붙여넣으세요.`:"복사가 막혀 있어요.";
+});
+$("t-save").addEventListener("click",async()=>{
+  const t=TEMPLATES.find(x=>x.id===tplId); const rows=tplRows().filter(r=>r.url);
+  if(!rows.length)return; $("t-save").disabled=true;
+  const memo=$("t-memo").value.trim(); const now=Date.now(); let saved=0;
+  try{
+    for(let k=0;k<rows.length;k++){
+      const r=rows[k];
+      const rec={url:r.url,base:r.landing,set:`${t.type} · ${t.brand}`,creative:r.creative,...Object.fromEntries(KEYS.map(x=>[x,r[x]])),memo,createdAt:new Date(now+k).toISOString(),createdBy:myId||null};
+      await saveRec(rec); saved++;
+    }
+    $("t-status").textContent=`${saved}개 링크를 기록에 저장했습니다.`; $("t-memo").value="";
+  }catch(e){$("t-status").textContent=(saved?`${saved}개 저장 후 멈췄어요. `:"")+saveErr(e);}
+  finally{refreshTpl();}
+});
+
+/* ---------- 직접 입력 모드 ---------- */
+const SOURCES=[
+  {v:"naver",label:"네이버 SA",medium:"cpc"},{v:"google",label:"구글애즈",medium:"cpc"},
+  {v:"facebook",label:"메타",medium:"paid_social"},{v:"remember",label:"리멤버",medium:"display"},
+  {v:"kakao",label:"카카오",medium:"display"},{v:"newsletter",label:"뉴스레터",medium:"email"}
+];
+const MEDIUMS=[["cpc","cpc · 검색광고"],["display","display · 배너/디스플레이"],["paid_social","paid_social · SNS 유료"],["email","email · 이메일/뉴스레터"],["organic_social","organic_social · SNS 오가닉"],["referral","referral · 제휴/외부 게시"]];
+const F={utm_source:"f-source",utm_medium:"f-medium",utm_campaign:"f-campaign",utm_content:"f-content",utm_term:"f-term"};
+$("url-presets").innerHTML=URL_PRESETS.map((p,i)=>`<button type="button" class="chip" data-i="${i}">${esc(p.label)}</button>`).join("");
+$("url-presets").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;$("f-url").value=URL_PRESETS[b.dataset.i].url;render();});
+$("src-chips").innerHTML=SOURCES.map(s=>`<button type="button" class="chip" data-v="${s.v}" aria-pressed="false">${esc(s.label)}</button>`).join("");
+$("src-chips").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const s=SOURCES.find(x=>x.v===b.dataset.v);$("f-source").value=s.v;$("f-medium").value=s.medium;render();});
+$("f-medium").innerHTML=MEDIUMS.map(([v,l])=>`<option value="${v}">${esc(l)}</option>`).join("");
+const norm=v=>{v=(v||"").trim();if(/^\{\w+\}$/.test(v))return v;return v.toLowerCase().replace(/\s+/g,"_").replace(/[^\p{L}\p{N}_\-.{}]/gu,"");};
+function readF(){const o={base:$("f-url").value.trim(),memo:$("f-memo").value.trim()};KEYS.forEach(k=>o[k]=norm($(F[k]).value));return o;}
+function render(){
+  const o=readF(); const b=buildUrl(o.base,o);
+  [...$("src-chips").children].forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.v===o.utm_source)));
+  if(b.url){
+    const [head,...rest]=b.url.split("?"); const q=rest.join("?");
+    let html=`<span class="base">${esc(head)}</span>`;
+    if(q) html+=q.split("&").map((kv,i)=>{const k=kv.split("=")[0];const c=COLORS[k];return `<span class="k">${i?"&amp;":"?"}</span>`+(c?`<span style="color:var(${c})">${esc(kv)}</span>`:`<span class="base">${esc(kv)}</span>`);}).join("");
+    $("url-out").innerHTML=html;
+  } else $("url-out").innerHTML=`<span class="base">${esc(b.err)}</span>`;
+  $("anat").innerHTML=KEYS.map(k=>`<li><span class="tag" style="--c:var(${COLORS[k]})">${k}</span><span class="v">${o[k]?esc(o[k]):`<span class="empty">없음</span>`}</span></li>`).join("");
+  const n=[];
+  if(b.err) n.push(b.err);
+  ["utm_source","utm_medium","utm_campaign"].forEach(k=>{if(!o[k])n.push(`${k}는 필수입니다.`);});
+  if(o.base&&/utm_/i.test(o.base)) n.push("랜딩 URL에 있던 UTM은 새 값으로 덮어썼습니다.");
+  if((o.utm_source==="naver"||o.utm_source==="google")&&o.utm_medium==="cpc"&&!o.utm_term) n.push(`검색광고는 utm_term에 ${KW}를 넣으면 키워드별 성과를 볼 수 있어요.`);
+  if(b.url&&links.some(l=>l.url===b.url)) n.push("같은 링크가 이미 기록에 있습니다.");
+  $("notes").innerHTML=n.length?n.map(t=>`<li>${esc(t)}</li>`).join(""):`<li class="ok">규칙에 맞는 링크입니다.</li>`;
+  const ready=!!b.url&&o.utm_source&&o.utm_medium&&o.utm_campaign;
+  $("b-save").disabled=!ready||!canWrite;$("b-copy").disabled=!ready;
+  return {o,b,ready};
+}
+document.querySelectorAll("#custom-view input,#custom-view select").forEach(el=>el.addEventListener("input",render));
+$("b-copy").onclick=async()=>{const {b,ready}=render();if(!ready)return;$("status").textContent=(await copyText(b.url))?"복사했습니다.":"복사가 막혀 있어요. 위 링크를 직접 선택해 복사하세요.";};
+$("b-save").onclick=async()=>{
+  const {o,b,ready}=render();if(!ready)return;$("b-save").disabled=true;
+  const copied=await copyText(b.url);
+  const rec={url:b.url,base:o.base,set:"직접 입력",creative:"",...Object.fromEntries(KEYS.map(k=>[k,o[k]])),memo:o.memo,createdAt:new Date().toISOString(),createdBy:myId||null};
+  try{await saveRec(rec);$("status").textContent=(copied?"복사하고 ":"")+"기록에 저장했습니다.";$("f-memo").value="";}
+  catch(e){$("status").textContent=saveErr(e);}finally{render();}
+};
+$("b-reset").onclick=()=>{["f-url","f-source","f-campaign","f-content","f-term","f-memo"].forEach(id=>$(id).value="");$("f-medium").value="cpc";$("status").textContent="";render();};
+// 예시 시작값 (권장안의 네이버 파워링크 기본 소재)
+$("f-url").value="https://upharos.co.kr/";$("f-source").value="naver";$("f-medium").value="cpc";$("f-campaign").value="naver_sa";$("f-content").value="p_upharos";$("f-term").value=KW;
+
+/* ---------- 기록 ---------- */
+async function saveRec(rec){
+  if(db){await db.collection("links").add(rec);}
+  else{links=[{id:"l"+Date.now()+Math.random().toString(36).slice(2,6),...rec},...links];lsSet(LOCAL_KEY,links);renderLog();}
+}
+const saveErr=e=>e&&e.code==="quota_exceeded"?"기록 저장 공간이 가득 찼어요. 오래된 기록을 지우고 다시 시도하세요.":"저장하지 못했어요. 이 페이지에 쓰기 권한이 있는지 확인하세요.";
+const fmtDate=iso=>{const d=new Date(iso);if(isNaN(d))return "";const p=n=>String(n).padStart(2,"0");return `${String(d.getFullYear()).slice(2)}.${p(d.getMonth()+1)}.${p(d.getDate())}`;};
+function filtered(){const q=$("f-search").value.trim().toLowerCase();return q?links.filter(l=>[l.set,l.creative,...KEYS.map(k=>l[k]),l.memo,l.url].join(" ").toLowerCase().includes(q)):links;}
+async function renderLog(){
+  const list=filtered();
+  $("log-count").textContent=links.length?`${links.length}개`:""; $("b-tsv").disabled=!list.length;
+  const cl=[...new Set(links.map(l=>l.utm_campaign).filter(Boolean))].slice(0,30);$("camp-list").innerHTML=cl.map(x=>`<option value="${esc(x)}">`).join("");
+  if(!links.length){$("log-body").innerHTML=`<tr><td colspan="6"><div class="empty-state"><strong>아직 저장된 링크가 없습니다</strong>캠페인 세트에서 "세트 전체 기록에 저장"을 누르면 여기에 쌓입니다.</div></td></tr>`;return;}
+  if(!list.length){$("log-body").innerHTML=`<tr><td colspan="6"><div class="empty-state">검색 결과가 없습니다.</div></td></tr>`;return;}
+  if(userCap){const ids=[...new Set(list.map(l=>l.createdBy).filter(Boolean))];if(ids.length){try{profiles=await userCap.profiles(ids)||{};}catch(e){}}}
+  $("log-body").innerHTML=list.map(l=>{
+    const who=l.createdBy?((profiles[l.createdBy]&&profiles[l.createdBy].name)||"팀원"):"";
+    return `<tr data-id="${esc(l.id)}">
+      <td class="num">${fmtDate(l.createdAt)}</td>
+      <td>${esc(l.set||"")}${l.creative?`<div class="hint">${esc(l.creative)}</div>`:""}</td>
+      <td>${pills(l)}</td>
+      <td class="url">${esc(l.url)}</td>
+      <td>${esc(l.memo||"")}${who?`<div class="hint">${esc(who)}</div>`:""}</td>
+      <td><div class="actions"><button class="btn small" data-act="copy" type="button">복사</button><button class="btn small" data-act="reuse" type="button">불러오기</button>${canWrite?`<button class="btn small" data-act="del" type="button">삭제</button>`:""}</div></td></tr>`;}).join("");
+}
+$("f-search").addEventListener("input",renderLog);
+$("log-body").addEventListener("click",async e=>{
+  const b=e.target.closest("button");if(!b)return;const tr=b.closest("tr");const l=links.find(x=>x.id===tr.dataset.id);if(!l)return;
+  const st=$("tpl-view").hidden?$("status"):$("t-status");
+  if(b.dataset.act==="copy") st.textContent=(await copyText(l.url))?"기록의 링크를 복사했습니다.":"복사가 막혀 있어요.";
+  if(b.dataset.act==="reuse"){setMode("custom");$("f-url").value=l.base||l.url.split("?")[0];KEYS.forEach(k=>$(F[k]).value=l[k]||"");$("f-memo").value=l.memo||"";render();window.scrollTo({top:0,behavior:"smooth"});$("status").textContent="기록을 불러왔습니다. 값을 바꿔 새로 저장할 수 있어요.";}
+  if(b.dataset.act==="del") b.parentElement.innerHTML=`<span class="confirm"><span class="hint">삭제할까요?</span><button class="btn small" data-act="del-yes" type="button">삭제</button><button class="btn small" data-act="del-no" type="button">취소</button></span>`;
+  if(b.dataset.act==="del-no") renderLog();
+  if(b.dataset.act==="del-yes"){
+    try{if(db)await db.collection("links").doc(l.id).delete();else{links=links.filter(x=>x.id!==l.id);lsSet(LOCAL_KEY,links);renderLog();}st.textContent="삭제했습니다.";}
+    catch(err){st.textContent="삭제하지 못했어요. 쓰기 권한을 확인하세요.";renderLog();}
+  }
+});
+$("b-tsv").addEventListener("click",async()=>{
+  const head=["날짜","캠페인 세트","소재유형",...KEYS,"URL","메모"];
+  const rows=filtered().map(l=>[fmtDate(l.createdAt),l.set||"",l.creative||"",...KEYS.map(k=>l[k]||""),l.url,(l.memo||"").replace(/[\t\n]/g," ")].join("\t"));
+  const st=$("tpl-view").hidden?$("status"):$("t-status");
+  st.textContent=(await copyText([head.join("\t"),...rows].join("\n")))?`${rows.length}개 행을 복사했습니다. 구글 시트에 붙여넣으세요.`:"복사가 막혀 있어요.";
+});
+
+/* ---------- 시작 ---------- */
+links=lsGet(LOCAL_KEY,[]);
+setMode(lsGet("utm-mode","tpl")); drawTpl(); render(); renderLog();
+(async()=>{
+  try{userCap=await claude.use("user");if(userCap){try{myId=await userCap.id();}catch(e){}}db=await claude.use("db");}catch(e){db=null;}
+  if(!db){$("store-banner").hidden=false;$("store-banner").textContent="팀 공유 기록에 연결되지 않아 이 브라우저에만 저장됩니다.";return;}
+  try{if(userCap&&userCap.can("data.write")===false){canWrite=false;$("store-banner").hidden=false;$("store-banner").textContent="보기 권한만 있어 기록은 볼 수만 있습니다. 링크 생성과 복사는 그대로 쓸 수 있어요.";}}catch(e){}
+  links=[];renderLog();
+  db.collection("links").orderBy("createdAt","desc").limit(500).onSnapshot(snap=>{
+    links=snap.docs.map(d=>({id:d.id,...d.data()}));renderLog();refreshTpl();render();
+  },()=>{$("store-banner").hidden=false;$("store-banner").textContent="기록을 불러오지 못했습니다. 페이지를 새로고침해 주세요.";});
+})();
+})();
+</script>
+
+</body>
+</html>
